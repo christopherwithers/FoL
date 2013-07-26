@@ -1,4 +1,6 @@
 ﻿using Microsoft.VisualStudio.TestTools.UnitTesting;
+using Moq;
+using eMotive.Repository.Interfaces;
 using eMotive.Repository.Objects.Users;
 
 namespace eMotive.Core.Tests
@@ -6,20 +8,34 @@ namespace eMotive.Core.Tests
     //http://www.codeproject.com/Articles/5019/Advanced-Unit-Testing-Part-I-Overview
     //http://www.peterprovost.org/blog/2012/04/15/visual-studio-11-fakes-part-1
     [TestClass]
-    public class UserTest
+    public class UserRepositoryTest
     {
-        private User user;
+        
+        private IUserRepository userRepository;
 
         [TestInitialize]
         public void Initialize()
         {
-            user = new User();
+            var UserRepository = new Mock<IUserRepository>();
+            UserRepository.Setup(n => n.New()).Returns(new User());
+            UserRepository.Setup(n => n.Fetch(It.IsAny<int>())).Returns(new User {ID = 1, Username = "ted"});
+            userRepository = UserRepository.Object;
+        }
+
+        [TestMethod]
+        public void NewReturnsNotNull()
+        {
+            var user = userRepository.New();
+            Assert.IsNotNull(user);
+
         }
 
         [TestMethod]
         public void ConstructorInitialization()
         {
-            Assert.AreEqual(user.Id, 0);
+            var user = userRepository.New();
+
+            Assert.AreEqual(user.ID, 0);
             Assert.AreEqual(user.Username, null);
             Assert.AreEqual(user.Forename, null);
             Assert.AreEqual(user.Surname, null);
@@ -30,8 +46,10 @@ namespace eMotive.Core.Tests
         }
 
         [TestMethod]
-        public void Username()
+        public void UsernameIsAssignable()
         {
+            var user = userRepository.New();
+
             user.Username = "ted";
             Assert.AreEqual(user.Username, "ted");
         }

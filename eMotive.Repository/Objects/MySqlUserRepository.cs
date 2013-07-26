@@ -1,6 +1,8 @@
-﻿using System.Collections.Generic;
-using System.Data;
-using ServiceStack.OrmLite;
+﻿using System;
+using System.Collections.Generic;
+using System.Linq;
+using Dapper;
+using MySql.Data.MySqlClient;
 using eMotive.Repository.Interfaces;
 using eMotive.Repository.Objects.Users;
 
@@ -12,59 +14,115 @@ namespace eMotive.Repository.Objects
     //http://xunitpatterns.com/Obscure%20Test.html#General
     public class MySqlUserRepository : IUserRepository
     {
+        private readonly string connectionString;
+        private readonly string userFields;
 
-        public IDbConnectionFactory DbFactory { get; set; } //injected by IOC
-
-        IDbConnection db;
-        IDbConnection Db
+        public MySqlUserRepository(string _connectionString)
         {
-            get { return db ?? (db = DbFactory.Open()); }
+            connectionString = _connectionString;
+            userFields = "`id`, `username`, `forename`, `surname`, `email`, `enabled`, `archived`";
         }
-        //http://stackoverflow.com/questions/10127296/ormlite-createtableifnotexists-fails-if-table-has-index
+
+        public User New()
+        {
+            return new User();
+        }
+
         public User Fetch(int _id)
         {
-            return Db.Id<User>(_id);
+            using (var connection = new MySqlConnection(connectionString))
+            {
+                var sql = string.Format("SELECT {0} FROM `users` WHERE `id`=@id;", userFields);
+
+                return connection.Query<User>(sql, new {id = _id}).SingleOrDefault();
+            }
         }
 
         public IEnumerable<User> Fetch(IEnumerable<int> _ids)
         {
-            return Db.Ids<User>(_ids);
+            using (var connection = new MySqlConnection(connectionString))
+            {
+                var sql = string.Format("SELECT {0} FROM `users` WHERE `id` in @ids;", userFields);
+
+                return connection.Query<User>(sql, new { ids = _ids });
+            }
         }
 
-        public CreateUser Create(User _user)
+        public bool Create(User _user, out int _id)
         {
-            var user = Db.QuerySingle<User>(new {_user.Username});
+            using (var connection = new MySqlConnection(connectionString))
+            {
+                connection.Open();
+                var sql = "INSERT INTO `users` (`username`, `forename`, `surname`, `email`, `enabled`, `archived`) VALUES (@username, @forename, @surname, @email, @enabled, @archived);";
 
-            if (user != null)
-                return user.Archived ? CreateUser.Deletedaccount : CreateUser.DuplicateEmail;
-            
-            if (Db.QuerySingle<User>(new {_user.Email}) != null)
-                return CreateUser.DuplicateUsername;
-            
-            db.Insert(_user);
+                var sqlParams = new
+                    {
+                        username = _user.Username,
+                        forename = _user.Forename,
+                        surname = _user.Surname,
+                        email = _user.Email,
+                        enabled = _user.Enabled,
+                        archived = _user.Archived
+                    };
+                var transaction = connection.BeginTransaction();
 
-            return db.GetLastInsertId() > 0 ? CreateUser.Success : CreateUser.Error;
+                var success = connection.Execute(sql, sqlParams) > 0;
+
+                var id =
+                    connection.Query<ulong>("SELECT CAST(LAST_INSERT_ID() AS UNSIGNED INTEGER);", transaction)
+                              .SingleOrDefault();
+
+                _id = Convert.ToInt32(id);
+
+                transaction.Commit();
+
+                return success & id > 0;
+            }
         }
 
-        public void Update(User _user)
+        public bool Update(User _user)
         {
-            db.Update(_user);
+            using (var connection = new MySqlConnection(connectionString))
+            {
+                var sql = "UPDATE `users` SET `username` = @username, `forename` = @forename, `surname`= @surname, `email` = @email, `enabled` = @enabled, `archived` = @archived WHERE `id` = @id";
+                var sqlParams = new
+                {
+                    username = _user.Username,
+                    forename = _user.Forename,
+                    surname = _user.Surname,
+                    email = _user.Email,
+                    enabled = _user.Enabled,
+                    archived = _user.Archived,
+                    id = _user.ID
+                };
+
+                return connection.Execute(sql, sqlParams) > 0;
+            }
         }
 
-        public void Delete(User _user)
+        public bool Delete(User _user)
         {
             _user.Enabled = false;
             _user.Surname = string.Empty;
             _user.Forename = string.Empty;
             _user.Archived = false;
 
-            db.Update(_user);
-        }
+            using (var connection = new MySqlConnection(connectionString))
+            {
+                var sql = "UPDATE `users` SET `username` = @username, `forename` = @forename, `surname`= @surname, `email` = @email, `enabled` = @enabled, `archived` = @archived WHERE `id` = @id";
+                var sqlParams = new
+                {
+                    username = _user.Username,
+                    forename = string.Empty,
+                    surname = string.Empty,
+                    email = _user.Email,
+                    enabled = false,
+                    archived = false,
+                    id = _user.ID
+                };
 
-        public void Dispose()
-        {
-            if (db != null)
-                db.Dispose();
+                return connection.Execute(sql, sqlParams) > 0;
+            }
         }
     }
 }
