@@ -1,4 +1,5 @@
 ﻿using System.Collections.Generic;
+using System.Linq;
 using eMotive.Models.Objects.Roles;
 
 namespace eMotive.Models.Objects.Users
@@ -14,5 +15,7 @@ namespace eMotive.Models.Objects.Users
         public bool Archived { get; set; }
 
         public IEnumerable<Role> Roles { get; set; }
+
+        public string RoleString { get; set; }
     }
 }

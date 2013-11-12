@@ -26,7 +26,7 @@ namespace eMotive.Repository.Objects
         {
             using (var connection = new MySqlConnection(connectionString))
             {
-                var sql = "SELECT `Id`, `Name` FROM `roles` WHERE `id`=@id;";
+                const string sql = "SELECT `Id`, `Name`, `Colour` FROM `roles` WHERE `id`=@id;";
 
                 return connection.Query<Role>(sql, new { id = _id }).SingleOrDefault();
             }
@@ -36,7 +36,7 @@ namespace eMotive.Repository.Objects
         {
             using (var connection = new MySqlConnection(connectionString))
             {
-                var sql = "SELECT `Id`, `Name` FROM `roles` WHERE `Name`=@name;";
+                const string sql = "SELECT `Id`, `Name`, `Colour` FROM `roles` WHERE `Name`=@name;";
 
                 return connection.Query<Role>(sql, new { name = _name }).SingleOrDefault();
             }
@@ -46,7 +46,7 @@ namespace eMotive.Repository.Objects
         {
             using (var connection = new MySqlConnection(connectionString))
             {
-                var sql = "SELECT `Id`, `Name` FROM `roles` WHERE `id` IN @ids;";
+                const string sql = "SELECT `Id`, `Name`, `Colour` FROM `roles` WHERE `id` IN @ids;";
 
                 return connection.Query<Role>(sql, new { ids = _ids });
             }
@@ -56,9 +56,19 @@ namespace eMotive.Repository.Objects
         {
             using (var connection = new MySqlConnection(connectionString))
             {
-                var sql = "SELECT `Id`, `Name` FROM `roles` WHERE `Name` IN @names;";
+                const string sql = "SELECT `Id`, `Name`, `Colour` FROM `roles` WHERE `Name` IN @names;";
 
                 return connection.Query<Role>(sql, new { names = _names });
+            }
+        }
+
+        public IEnumerable<Role> FetchAll()
+        {
+            using (var connection = new MySqlConnection(connectionString))
+            {
+                const string sql = "SELECT `Id`, `Name`, `Colour` FROM `roles`;";
+
+                return connection.Query<Role>(sql);
             }
         }
 
@@ -67,7 +77,7 @@ namespace eMotive.Repository.Objects
         {
             using (var connection = new MySqlConnection(connectionString))
             {
-                var sql = "INSERT INTO `UserHasRoles` (`idUser`, `idRole`) VALUES (@idUser, @idRole);";
+                const string sql = "INSERT INTO `UserHasRoles` (`UserId`, `RoleId`) VALUES (@idUser, @idRole);";
 
                 return connection.Execute(sql, new {Enumerable = _ids.Select(n => new {idUser = _id, idRole = n}) }) > 0;
             }
@@ -77,7 +87,7 @@ namespace eMotive.Repository.Objects
         {
             using (var connection = new MySqlConnection(connectionString))
             {
-                var sql = "DELETE FROM `UserHasRoles` WHERE `idUser` = @idUser AND `idRole` = @idRole);";
+                const string sql = "DELETE FROM `UserHasRoles` WHERE `UserId` = @idUser AND `RoleId` = @idRole);";
 
                 return connection.Execute(sql, new { Enumerable = _ids.Select(n => new { idUser = _userId, idRole = n }) }) > 0;
             }
@@ -87,7 +97,7 @@ namespace eMotive.Repository.Objects
         {
             using (var connection = new MySqlConnection(connectionString))
             {
-                var sql = "SELECT `idUser` FROM `UserHasRoles` WHERE `idRole` = @id;";
+                const string sql = "SELECT `UserId` FROM `UserHasRoles` WHERE `RoleId` = @id;";
 
                 return connection.Query<int>(sql, new { id = _id});
             }
@@ -97,7 +107,7 @@ namespace eMotive.Repository.Objects
         {
             using (var connection = new MySqlConnection(connectionString))
             {
-                var sql = "SELECT a.`id`, a.`Name` FROM `roles` a INNER JOIN `UserHasRoles` b ON a.`id`=b.`idRole` WHERE b.`idUser` = @idUser;";
+                const string sql = "SELECT a.`id`, a.`Name`, a.`Colour` FROM `roles` a INNER JOIN `UserHasRoles` b ON a.`id`=b.`idRole` WHERE b.`idUser` = @idUser;";
 
                 return connection.Query<Role>(sql, new { idUser = _userId });
             }
@@ -107,19 +117,19 @@ namespace eMotive.Repository.Objects
         {
             using (var connection = new MySqlConnection(connectionString))
             {
-                var sql = "UPDATE `roles` SET `Name`= @name WHERE `id` = @id;";
+                const string sql = "UPDATE `roles` SET `Name`= @name, `Colour`=@colour WHERE `id` = @id;";
 
-                return connection.Execute(sql, new { name = _role.Name, id = _role.ID }) > 0;
+                return connection.Execute(sql, new { name = _role.Name, id = _role.ID , colour = _role.Colour}) > 0;
             }
         }
 
-        public bool Create(string _role)
+        public bool Create(Role _role)
         {
             using (var connection = new MySqlConnection(connectionString))
             {
-                var sql = "INSERT INTO `roles` (`Name`) VALUES (@name);";
+                const string sql = "INSERT INTO `roles` (`Name`, `Colour`) VALUES (@name, @colour);";
 
-                return connection.Execute(sql, new { name = _role }) > 0;
+                return connection.Execute(sql, new { name = _role.Name, colour = _role.Colour }) > 0;
             }
         }
 
@@ -127,7 +137,7 @@ namespace eMotive.Repository.Objects
         {
             using (var connection = new MySqlConnection(connectionString))
             {
-                var sql = "DELETE FROM `roles WHERE `Name`=@name;";
+                const string sql = "DELETE FROM `roles WHERE `Name`=@name;";
 
                 return connection.Execute(sql, new { name = _role }) > 0;
             }
@@ -137,7 +147,7 @@ namespace eMotive.Repository.Objects
         {
             using (var connection = new MySqlConnection(connectionString))
             {
-                var sql = "DELETE FROM `roles WHERE `id`=@id;";
+                const string sql = "DELETE FROM `roles` WHERE `id`=@id;";
 
                 return connection.Execute(sql, new { id = _id }) > 0;
             }

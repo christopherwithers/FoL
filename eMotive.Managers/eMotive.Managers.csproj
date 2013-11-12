@@ -30,29 +30,48 @@
     <WarningLevel>4</WarningLevel>
   </PropertyGroup>
   <ItemGroup>
+    <Reference Include="AutoMapper">
+      <HintPath>..\packages\AutoMapper.2.2.1\lib\net40\AutoMapper.dll</HintPath>
+    </Reference>
+    <Reference Include="Dapper, Version=1.12.1.1, Culture=neutral, processorArchitecture=MSIL">
+      <SpecificVersion>False</SpecificVersion>
+      <HintPath>..\eMotive.Repository\bin\Debug\Dapper.dll</HintPath>
+    </Reference>
     <Reference Include="Extensions, Version=1.0.0.0, Culture=neutral, processorArchitecture=MSIL">
       <SpecificVersion>False</SpecificVersion>
       <HintPath>..\..\CommonUtilities\Extensions\bin\Release\Extensions.dll</HintPath>
     </Reference>
     <Reference Include="Lucene.Net">
-      <HintPath>..\eMotive.Search\bin\Debug\Lucene.Net.dll</HintPath>
+      <HintPath>..\packages\Lucene.Net.3.0.3\lib\NET40\Lucene.Net.dll</HintPath>
     </Reference>
-    <Reference Include="Omu.ValueInjecter">
-      <HintPath>..\packages\ValueInjecter.2.3.3\lib\net35\Omu.ValueInjecter.dll</HintPath>
-    </Reference>
+    <Reference Include="MySql.Data, Version=6.7.4.0, Culture=neutral, PublicKeyToken=c5687fc88969c44d, processorArchitecture=MSIL" />
     <Reference Include="System" />
     <Reference Include="System.Core" />
-    <Reference Include="System.Xml.Linq" />
-    <Reference Include="System.Data.DataSetExtensions" />
-    <Reference Include="Microsoft.CSharp" />
     <Reference Include="System.Data" />
-    <Reference Include="System.Xml" />
+    <Reference Include="System.Transactions" />
   </ItemGroup>
   <ItemGroup>
-    <Compile Include="Interfaces\ISiteSearchManager.cs" />
+    <Compile Include="AutoMapperManagerConfiguration.cs" />
+    <Compile Include="Interfaces\IAccountManager.cs" />
+    <Compile Include="Interfaces\IGroupManager.cs" />
+    <Compile Include="Interfaces\INewsManager.cs" />
+    <Compile Include="Interfaces\IPageManager.cs" />
+    <Compile Include="Interfaces\IPartialPageManager.cs" />
+    <Compile Include="Interfaces\IRoleManager.cs" />
+    <Compile Include="Interfaces\ISignupManager.cs" />
     <Compile Include="Interfaces\IUserManager.cs" />
+    <Compile Include="Objects\AccountManager.cs" />
+    <Compile Include="Objects\GroupManager.cs" />
+    <Compile Include="Objects\NewsManager.cs" />
+    <Compile Include="Objects\PageManager.cs" />
+    <Compile Include="Objects\PartialPageManager.cs" />
+    <Compile Include="Objects\RoleManager.cs" />
+    <Compile Include="Objects\Search\PartialPageSearchDocument.cs" />
+    <Compile Include="Objects\Search\PageSearchDocument.cs" />
+    <Compile Include="Objects\Search\NewsSearchDocument.cs" />
+    <Compile Include="Objects\Search\RoleSearchDocument.cs" />
     <Compile Include="Objects\Search\UserSearchDocument.cs" />
-    <Compile Include="Objects\SiteSearchManager.cs" />
+    <Compile Include="Objects\SignupManager.cs" />
     <Compile Include="Objects\UserManager.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
   </ItemGroup>
@@ -68,6 +87,10 @@
     <ProjectReference Include="..\eMotive.Search\eMotive.Search.csproj">
       <Project>{3185eb88-28b3-4997-ad51-023422f2e972}</Project>
       <Name>eMotive.Search</Name>
+    </ProjectReference>
+    <ProjectReference Include="..\eMotive.Services\eMotive.Services.csproj">
+      <Project>{8b8eff5a-77dc-48d3-8a17-e10897df74b9}</Project>
+      <Name>eMotive.Services</Name>
     </ProjectReference>
   </ItemGroup>
   <ItemGroup>

@@ -13,13 +13,15 @@ namespace eMotive.Repository.Interfaces
         IEnumerable<Role> Fetch(IEnumerable<int> _ids);
         IEnumerable<Role> Fetch(IEnumerable<string> _names);
 
+        IEnumerable<Role> FetchAll(); 
+
         bool AddUserToRoles(int _id, IEnumerable<int> _ids);
         bool RemoveUserFromRoles(int _userId, IEnumerable<int> _ids);
         IEnumerable<int> FindUsersInRole(int _id);
 
         IEnumerable<Role> FetchUserRoles(int _userId); 
         bool Update(Role _role);
-        bool Create(string _role);
+        bool Create(Role _role);
         bool Delete(string _role);
         bool Delete(int _id);
     }

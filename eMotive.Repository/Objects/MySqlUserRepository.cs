@@ -1,9 +1,13 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Collections.ObjectModel;
 using System.Linq;
+using System.Transactions;
 using Dapper;
+using Extensions;
 using MySql.Data.MySqlClient;
 using eMotive.Repository.Interfaces;
+using eMotive.Repository.Objects.Signups;
 using eMotive.Repository.Objects.Users;
 
 namespace eMotive.Repository.Objects
@@ -34,17 +38,243 @@ namespace eMotive.Repository.Objects
             {
                 var sql = string.Format("SELECT {0} FROM `users` WHERE `id`=@id;", userFields);
 
-                return connection.Query<User>(sql, new {id = _id}).SingleOrDefault();
+                var user = connection.Query<User>(sql, new {id = _id}).SingleOrDefault();
+
+                if (user != null)
+                {
+                    sql =
+                        "SELECT b.* FROM `userHasRoles` a INNER JOIN `roles` b ON a.`roleID`=b.`id` WHERE a.`userId`=@userId";
+
+                    user.Roles = connection.Query<Role>(sql, new {userId = _id});
+                }
+
+                return user;
             }
+        }
+
+        public User Fetch(string _value, UserField _field)
+        {
+            using (var connection = new MySqlConnection(connectionString))
+            {
+                var sql = string.Format("SELECT {0} FROM `users` WHERE `{1}`=@val;", userFields, _field);
+
+                var user = connection.Query<User>(sql, new { val = _value }).SingleOrDefault();
+
+                if (user != null)
+                {
+                    sql =
+                        "SELECT b.* FROM `userHasRoles` a INNER JOIN `roles` b ON a.`roleID`=b.`id` WHERE a.`userId`=@userId;";
+
+                    user.Roles = connection.Query<Role>(sql, new { userId = user.ID });
+                }
+
+                return user;
+            }
+        }
+
+        public IEnumerable<User> FetchAll()
+        {
+            using (var connection = new MySqlConnection(connectionString))
+            {
+                var sql = string.Format("SELECT {0} FROM `users`;", userFields);
+
+                var users = connection.Query<User>(sql);
+
+                if (users.HasContent())
+                {
+                    //var userDict = users.ToDictionary(k => k.ID, v => v);
+
+                    sql = "SELECT a.`userId`, b.* FROM `userHasRoles` a INNER JOIN `roles` b ON a.`roleID`=b.`id` WHERE a.`userId` IN @ids;";
+
+                    var roles = connection.Query<RoleMap>(sql, new { ids = users.Select(n => n.ID) });
+
+                    if (roles.HasContent())
+                    {
+                        var rolesUserDict = new Dictionary<int, ICollection<Role>>();
+
+                        foreach (var item in roles)
+                        {
+                            ICollection<Role> currentList;
+
+                            if (!rolesUserDict.TryGetValue(item.UserId, out currentList))
+                            {
+                                rolesUserDict.Add(item.UserId, new Collection<Role>());
+                                rolesUserDict[item.UserId].Add(new Role { ID = item.ID, Name = item.Name, Colour = item.Colour });
+
+                            }
+                            else
+                            {
+                                rolesUserDict[item.UserId].Add(new Role { ID = item.ID, Name = item.Name, Colour = item.Colour });
+                            }
+                        }
+
+                        foreach (var user in users)
+                        {
+                            user.Roles = rolesUserDict[user.ID].Distinct();
+                        }
+                    }
+                }
+
+                return users;
+            }
+        }
+
+        private class RoleMap
+        {
+            public int UserId { get; set; }
+            public int ID { get; set; }
+            public string Name { get; set; }
+            public string Colour { get; set; }
         }
 
         public IEnumerable<User> Fetch(IEnumerable<int> _ids)
         {
+            if (!_ids.HasContent())
+                return null;
+
             using (var connection = new MySqlConnection(connectionString))
             {
-                var sql = string.Format("SELECT {0} FROM `users` WHERE `id` in @ids;", userFields);
+                var sql = string.Format("SELECT {0} FROM `users` WHERE `id` IN @ids;", userFields);
 
-                return connection.Query<User>(sql, new { ids = _ids });
+                var users = connection.Query<User>(sql, new { ids = _ids });
+
+                if (users.HasContent())
+                {
+                   // var userDict = users.ToDictionary(k => k.ID, v => v);
+
+                    sql = "SELECT a.`userId`, b.* FROM `userHasRoles` a INNER JOIN `roles` b ON a.`roleID`=b.`id` WHERE a.`userId` IN @ids;";
+
+                    var roles = connection.Query<RoleMap>(sql, new {ids = users.Select(n => n.ID)});
+
+                    if (roles.HasContent())
+                    {
+                        var rolesUserDict = new Dictionary<int, ICollection<Role>>();
+
+                        foreach (var item in roles)
+                        {
+                            ICollection<Role> currentList;
+
+                            if (!rolesUserDict.TryGetValue(item.UserId, out currentList))
+                            {
+                                rolesUserDict.Add(item.UserId, new Collection<Role>());
+                                rolesUserDict[item.UserId].Add(new Role { ID = item.ID, Name = item.Name, Colour = item.Colour});
+                                
+                            }
+                            else
+                            {
+                                rolesUserDict[item.UserId].Add(new Role { ID = item.ID, Name = item.Name, Colour = item.Colour });
+                            }
+                        }
+
+                        foreach (var user in users)
+                        {
+                            user.Roles = rolesUserDict[user.ID].Distinct();
+                        }
+                    }
+                }
+
+                return users;
+            }
+        }
+
+        public IEnumerable<User> Fetch(IEnumerable<string> _usernames)
+        {
+            if (!_usernames.HasContent())
+                return null;
+
+            using (var connection = new MySqlConnection(connectionString))
+            {
+                var sql = string.Format("SELECT {0} FROM `users` WHERE `username` IN @usernames;", userFields);
+
+                var users = connection.Query<User>(sql, new { usernames = _usernames });
+
+                if (users.HasContent())
+                {
+                    // var userDict = users.ToDictionary(k => k.ID, v => v);
+
+                    sql = "SELECT a.`userId`, b.* FROM `userHasRoles` a INNER JOIN `roles` b ON a.`roleID`=b.`id` WHERE a.`userId` IN @ids;";
+
+                    var roles = connection.Query<RoleMap>(sql, new { ids = users.Select(n => n.ID) });
+
+                    if (roles.HasContent())
+                    {
+                        var rolesUserDict = new Dictionary<int, ICollection<Role>>();
+
+                        foreach (var item in roles)
+                        {
+                            ICollection<Role> currentList;
+
+                            if (!rolesUserDict.TryGetValue(item.UserId, out currentList))
+                            {
+                                rolesUserDict.Add(item.UserId, new Collection<Role>());
+                                rolesUserDict[item.UserId].Add(new Role { ID = item.ID, Name = item.Name, Colour = item.Colour });
+
+                            }
+                            else
+                            {
+                                rolesUserDict[item.UserId].Add(new Role { ID = item.ID, Name = item.Name, Colour = item.Colour });
+                            }
+                        }
+
+                        foreach (var user in users)
+                        {
+                            user.Roles = rolesUserDict[user.ID].Distinct();
+                        }
+                    }
+                }
+
+                return users;
+            }
+        }
+
+        public bool SaveApplicantData(IEnumerable<ApplicantData> _applicantData)
+        {
+            using (var connection = new MySqlConnection(connectionString))
+            {
+                using (var transactionScope = new TransactionScope())
+                {
+                    connection.Open();
+                    /*            using (var connection = new MySqlConnection(connectionString))
+            {
+                const string sql = "INSERT INTO `UserHasRoles` (`UserId`, `RoleId`) VALUES (@idUser, @idRole);";
+
+                return connection.Execute(sql, new {Enumerable = _ids.Select(n => new {idUser = _id, idRole = n}) }) > 0;
+            }*/
+                    const string sql = "INSERT INTO `applicantReference` (`TermCode`, `ApplicationDate`, `ApplicantId`, `PersonalID`, `ApplicantPrefix`, `Surname`, `FirstName`, `DateOfBirth`, `Age`, `Gender`, `DisabilityCode`, `DisabilityDesc`, `ResidenceCode`, `NationalityDesc`, `CorrespondenceAddr1`, `CorrespondenceAddr2`, `CorrespondenceAddr3`, `CorrespondenceCity`, `CorrespondenceNationDesc`, `CorrespondencePostcode`, `EmailAddress`, `PreviousSchoolDesc`, `SchoolAddressCity`, `SchoolLEADescription`) VALUES (@TermCode, @ApplicationDate, @ApplicantId, @PersonalID, @ApplicantPrefix, @Surname, @FirstName, @DateOfBirth, @Age, @Gender, @DisabilityCode, @DisabilityDesc, @ResidenceCode, @NationalityDesc, @CorrespondenceAddr1, @CorrespondenceAddr2, @CorrespondenceAddr3, @CorrespondenceCity, @CorrespondenceNationDesc, @CorrespondencePostcode, @EmailAddress, @PreviousSchoolDesc, @SchoolAddressCity, @SchoolLEADescription);";
+
+                    var success = connection.Execute(sql, _applicantData) > 0;
+
+                    transactionScope.Complete();
+
+                    return success;
+                }
+            }
+        }
+
+        public IDictionary<string, List<ApplicantData>> FetchApplicantData(IEnumerable<string> _usernames)
+        {
+            using (var connection = new MySqlConnection(connectionString))
+            {
+                connection.Open();
+                var sql = "SELECT * FROM `applicantReference` WHERE `PersonalID` IN @usernames;";
+
+                var applicants = connection.Query<ApplicantData>(sql, new {usernames = _usernames});
+
+                if (!applicants.HasContent())
+                    return null;
+
+                return applicants.GroupBy(m => m.PersonalID).ToDictionary(k => k.Key, v => v.ToList());
+            }
+        }
+
+        public IEnumerable<ApplicantData> FetchApplicantData(string _username)
+        {
+            using (var connection = new MySqlConnection(connectionString))
+            {
+                connection.Open();
+                var sql = "SELECT * FROM `applicantReference` WHERE `PersonalID`=@username;";
+
+                return connection.Query<ApplicantData>(sql, new { username = _username });
             }
         }
 
@@ -52,31 +282,31 @@ namespace eMotive.Repository.Objects
         {
             using (var connection = new MySqlConnection(connectionString))
             {
-                connection.Open();
-                var sql = "INSERT INTO `users` (`username`, `forename`, `surname`, `email`, `enabled`, `archived`) VALUES (@username, @forename, @surname, @email, @enabled, @archived);";
+                using (var transactionScope = new TransactionScope())
+                {
+                    connection.Open();
+                    var sql = "INSERT INTO `users` (`username`, `forename`, `surname`, `email`, `enabled`, `archived`) VALUES (@username, @forename, @surname, @email, @enabled, @archived);";
+                    
+                    var success = connection.Execute(sql, new
+                        {
+                            username = _user.Username,
+                            forename = _user.Forename,
+                            surname = _user.Surname,
+                            email = _user.Email,
+                            enabled = _user.Enabled,
+                            archived = _user.Archived
+                        }) > 0;
 
-                var sqlParams = new
-                    {
-                        username = _user.Username,
-                        forename = _user.Forename,
-                        surname = _user.Surname,
-                        email = _user.Email,
-                        enabled = _user.Enabled,
-                        archived = _user.Archived
-                    };
-                var transaction = connection.BeginTransaction();
+                    var id = connection.Query<ulong>("SELECT CAST(LAST_INSERT_ID() AS UNSIGNED INTEGER);").SingleOrDefault();
+                    _id = Convert.ToInt32(id);
+                    var insertObj = _user.Roles.Select(n => new { UserId = id, RoleId = n.ID });
+                    sql = "INSERT INTO `UserHasRoles` (`UserID`, `RoleId`) VALUES (@UserId, @RoleId);";
+                    success = connection.Execute(sql, insertObj) > 0;
 
-                var success = connection.Execute(sql, sqlParams) > 0;
+                    transactionScope.Complete();  
 
-                var id =
-                    connection.Query<ulong>("SELECT CAST(LAST_INSERT_ID() AS UNSIGNED INTEGER);", transaction)
-                              .SingleOrDefault();
-
-                _id = Convert.ToInt32(id);
-
-                transaction.Commit();
-
-                return success & id > 0;
+                    return success & id > 0;
+                }
             }
         }
 
@@ -84,19 +314,62 @@ namespace eMotive.Repository.Objects
         {
             using (var connection = new MySqlConnection(connectionString))
             {
-                var sql = "UPDATE `users` SET `username` = @username, `forename` = @forename, `surname`= @surname, `email` = @email, `enabled` = @enabled, `archived` = @archived WHERE `id` = @id";
-                var sqlParams = new
+                using (var transactionScope = new TransactionScope())
                 {
-                    username = _user.Username,
-                    forename = _user.Forename,
-                    surname = _user.Surname,
-                    email = _user.Email,
-                    enabled = _user.Enabled,
-                    archived = _user.Archived,
-                    id = _user.ID
-                };
+                    connection.Open();
 
-                return connection.Execute(sql, sqlParams) > 0;
+                    var sql = "UPDATE `users` SET `username` = @username, `forename` = @forename, `surname`= @surname, `email` = @email, `enabled` = @enabled, `archived` = @archived WHERE `id` = @id";
+
+                    var success = connection.Execute(sql, new
+                        {
+                            username = _user.Username,
+                            forename = _user.Forename,
+                            surname = _user.Surname,
+                            email = _user.Email,
+                            enabled = _user.Enabled,
+                            archived = _user.Archived,
+                            id = _user.ID
+                        }) > 0;
+
+                    //todo: how to only alter roles which have been updated?
+
+                    sql = "SELECT `RoleID` FROM `UserHasRoles` WHERE `UserID` = @UserId";
+
+                    var oldRoles = connection.Query<int>(sql, new { UserId = _user.ID });
+
+                    var enumerable = oldRoles as int[] ?? oldRoles.ToArray();
+                  //  if (!enumerable.HasContent())
+                  //  {
+                     //   sql = "INSERT INTO `UserHasRoles` (`UserID`, `RoleId`) VALUES (@UserId, @RoleId);";
+                     //   var insertObj = _user.Roles.Select(n => new { UserId = _user.ID, RoleId = n.ID });
+                     //   success = connection.Execute(sql, insertObj) > 0;
+                   // }
+                   // else
+                    // {var toDelete = enumerable.Where(n => !_user.Roles.Any(m => m.ID == n));
+                        var toDelete = enumerable.Where(n => _user.Roles.All(m => m.ID != n));
+                        var toUpdate = _user.Roles.Where(n => !enumerable.Any(m => m == n.ID));
+
+                        var delete = toDelete as int[] ?? toDelete.ToArray();
+                        if (delete.HasContent())
+                        {
+                            sql = "DELETE FROM `UserHasRoles` WHERE `RoleId` IN @roleIds AND `UserId` = @UserId;";
+
+                            success = connection.Execute(sql, new {roleIds = delete, UserId = _user.ID}) > 0;
+                        }
+
+                        var update = toUpdate as Role[] ?? toUpdate.ToArray();
+                        if (update.HasContent())
+                        {
+                            sql = "INSERT INTO `UserHasRoles` (`UserID`, `RoleId`) VALUES (@UserId, @RoleId);";
+                            var insertObj = update.Select(n => new { UserId = _user.ID, RoleId = n.ID });
+                            success = connection.Execute(sql, insertObj) > 0;
+                        }
+                   // }
+
+                    transactionScope.Complete();
+
+                    return success;
+                }
             }
         }
 
@@ -109,7 +382,7 @@ namespace eMotive.Repository.Objects
 
             using (var connection = new MySqlConnection(connectionString))
             {
-                var sql = "UPDATE `users` SET `username` = @username, `forename` = @forename, `surname`= @surname, `email` = @email, `enabled` = @enabled, `archived` = @archived WHERE `id` = @id";
+                const string sql = "UPDATE `users` SET `username` = @username, `forename` = @forename, `surname`= @surname, `email` = @email, `enabled` = @enabled, `archived` = @archived WHERE `id` = @id";
                 var sqlParams = new
                 {
                     username = _user.Username,
@@ -117,11 +390,82 @@ namespace eMotive.Repository.Objects
                     surname = string.Empty,
                     email = _user.Email,
                     enabled = false,
-                    archived = false,
+                    archived = true,
                     id = _user.ID
                 };
 
                 return connection.Execute(sql, sqlParams) > 0;
+            }
+        }
+
+        public bool ValidateUser(string _username, string _password)
+        {
+            using (var connection = new MySqlConnection(connectionString))
+            {
+                connection.Open();
+
+                const string sql = "SELECT CAST(Count(`id`) AS UNSIGNED INTEGER) FROM `users` WHERE `username`=@username AND `password`=@password;";
+
+                return connection.Query<ulong>(sql, new { username = _username, password = _password }).SingleOrDefault() > 0;
+            }
+        }
+
+        public bool SavePassword(int _id, string _salt, string _password)
+        {
+            using (var connection = new MySqlConnection(connectionString))
+            {
+                connection.Open();
+
+                const string sql = "UPDATE `users` SET `salt` = @salt, `password`=@password WHERE `id`=@id;";
+
+                var success = connection.Execute(sql, new { id = _id, salt = _salt, password = _password }) > 0;
+
+                return success;
+            }
+        }
+
+        public string GetSalt(string _username)
+        {
+            using (var connection = new MySqlConnection(connectionString))
+            {
+                connection.Open();
+
+                const string sql = "SELECT `salt` FROM `users` WHERE `username`=@username;";
+
+                return connection.Query<string>(sql, new {username = _username}).SingleOrDefault();
+            }
+        }
+
+        public Profile FetchProfile(string _username)
+        {
+            using (var connection = new MySqlConnection(connectionString))
+            {
+                connection.Open();
+
+                var sql = "SELECT c.* FROM `userHasGroups` a INNER JOIN `users` b ON a.`IdUser` = b.`Id` INNER JOIN `groups` c ON a.`IdGroup` = c.`Id` WHERE `username`=@username;";
+
+                var groups = connection.Query<Group>(sql, new { username = _username });
+
+                sql = "SELECT * FROM `applicantreference` WHERE `PersonalID`=@username;";
+
+                var applicantData = connection.Query<ApplicantData>(sql, new { username = _username });
+                var profile = new  Profile {Groups = groups, ApplicantFields = applicantData};
+
+                return profile;
+            }
+        }
+
+        public bool AddUserToGroup(int _userId, int _id)
+        {
+            using (var connection = new MySqlConnection(connectionString))
+            {
+                connection.Open();
+
+                const string sql = "INSERT INTO `userhasgroups` (`IdGroup`,`IdUser`) VALUES (@idGroup, @idUser);";
+
+                var success = connection.Execute(sql, new { idGroup = _id, idUser = _userId }) > 0;
+
+                return success;
             }
         }
     }

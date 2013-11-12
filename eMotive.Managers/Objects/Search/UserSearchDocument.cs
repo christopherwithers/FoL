@@ -12,10 +12,10 @@ namespace eMotive.Managers.Objects.Search
         {
             User = _user;
             DatabaseID = _user.ID;
-            UniqueID = string.Format("{0}_{1}", "User", _user.ID);
             Title = string.Format("{0} {1}", User.Forename, User.Surname);
             Description = String.Empty;
             Type = "User";
+            UniqueID = string.Format("{0}_{1}", Type, _user.ID);
         }
 
         public int DatabaseID { get; set; }

@@ -1,98 +1,374 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Linq;
+using AutoMapper;
+using eMotive.Models.Objects.Roles;
 using Extensions;
-using Omu.ValueInjecter;
+using Lucene.Net.Search;
 using eMotive.Managers.Interfaces;
 using eMotive.Managers.Objects.Search;
 using eMotive.Models.Objects;
+using eMotive.Models.Objects.Search;
 using eMotive.Models.Objects.Users;
+using eMotive.Repository;
 using eMotive.Repository.Interfaces;
+using eMotive.Search.Interfaces;
+using eMotive.Search.Objects;
+using eMotive.Services.Interfaces;
+using Profile = eMotive.Models.Objects.Users.Profile;
 using repUsers = eMotive.Repository.Objects.Users;
+using emSearch = eMotive.Search.Objects.Search;
 
 namespace eMotive.Managers.Objects
 {
     public class UserManager : IUserManager
     {
-        private readonly IUserRepository userRep;
-        private readonly IRoleRepository roleRep;
-        private readonly ISiteSearchManager searchManager;
 
-        public UserManager(IUserRepository _userRep, IRoleRepository _roleRep, ISiteSearchManager _searchManager)
+        private readonly IUserRepository userRep;
+        private readonly ISearchManager searchManager;
+        private readonly INotificationService notificationService;
+        private readonly IAccountManager accountManager;
+        private readonly IGroupManager groupManager;
+        
+        public UserManager(IUserRepository _userRep, IAccountManager _accountManager, 
+            ISearchManager _searchManager, IGroupManager _groupManager, INotificationService _notificationService)
         {
             userRep = _userRep;
-            roleRep = _roleRep;
+            accountManager = _accountManager;
             searchManager = _searchManager;
+            groupManager = _groupManager;
+            notificationService = _notificationService;
+
+            AutoMapperManagerConfiguration.Configure();
         }
 
         public User New()
         {
-            var repUser = userRep.New(); 
-
-            var user = new User();
-
-            user.InjectFrom(repUser);
-
-            return user;
+            return Mapper.Map<repUsers.User, User>(userRep.New());
         }
 
         public User Fetch(int _id)
         {
             var repUser = userRep.Fetch(_id);
 
-            if (repUser != null)
-                repUser.Roles = roleRep.FetchUserRoles(_id);
-
-            var user = new User();
-
-            user.InjectFrom(repUser);
-
-            return user;
+            return Mapper.Map<repUsers.User, User>(repUser);
         }
 
-        //TODO: if we cache, then assign id to _user too and cache Models.User
-        public CreateUser Create(User _user)
+        public User Fetch(string _username)
         {
-            var repUser = new repUsers.User();
-            repUser.InjectFrom(_user);
+            var repUser = userRep.Fetch(_username, UserField.Username);
 
-            var result = searchManager.DoSearch(new eMotive.Search.Objects.Search
-                            {
-                                CustomQuery = new Dictionary<string, string>
-                                    {
-                                        { "Username", _user.Username }, 
-                                        { "Email", _user.Email },
-                                        { "Type", "User"}
-                                    }
-                            });
+            return Mapper.Map<repUsers.User, User>(repUser);
+        }
 
-            if (result.Items.HasContent())
+        public IEnumerable<User> Fetch(IEnumerable<int> _ids)
+        {
+            return Mapper.Map<IEnumerable<repUsers.User>, IEnumerable<User>>(userRep.Fetch(_ids));
+        }
+
+        public IEnumerable<User> Fetch(IEnumerable<string> _usernames)
+        {
+            return Mapper.Map<IEnumerable<repUsers.User>, IEnumerable<User>>(userRep.Fetch(_usernames));
+        }
+
+        public IEnumerable<ApplicantData> FetchApplicantData(string _username)
+        {
+            return Mapper.Map<IEnumerable<repUsers.ApplicantData>, IEnumerable<ApplicantData>>(userRep.FetchApplicantData(_username));
+        }
+
+        public IDictionary<string, List<ApplicantData>> FetchApplicantData(IEnumerable<string> _usernames)
+        {
+            return Mapper.Map<IDictionary<string, List<repUsers.ApplicantData>>, IDictionary<string, List<ApplicantData>>>(userRep.FetchApplicantData(_usernames));
+        }
+
+        public bool CreateApplicantAccounts(List<ApplicantUploadData> _applicantData, IEnumerable<int> _groupIds)
+        {
+
+            var users = Fetch(_applicantData.Select(n => n.PersonID));
+
+            if (users.HasContent())
+                _applicantData.RemoveAll(n => users.Any(m => m.Username == n.PersonID));
+
+            if (!_applicantData.HasContent())
+                return false;
+
+            var applicantDict = userRep.FetchApplicantData(_applicantData.Select(n => n.PersonID));
+
+           // var newUsers = new List<User>();
+
+            foreach (var applicant in applicantDict)
             {
-                var users = userRep.Fetch(result.Items.Select(n => n.ID).ToList());
+                foreach (var applicantData in applicant.Value)
+                {
+                    var newUser = new User
+                    {
+                        Archived = false,
+                        Email = applicantData.EmailAddress,
+                        Enabled = true,
+                        Forename = applicantData.Firstname,
+                        Surname = applicantData.Surname,
+                        Roles = new [] {new Role{ Name = "Applicant", ID = 4, Colour = "63C763"} },
+                        Username = applicantData.PersonalID
+                    };
+                  //  int id;
+                    Create(newUser, _groupIds);
+                    break;
+                }
+            }
 
-                if(users.Any(n => n.Archived))
-                    return CreateUser.Deletedaccount;
+            return true;
+        }
+        public bool Create(User _user, IEnumerable<int> _groupIds)
+        {
+            var user = Mapper.Map<User, repUsers.User>(_user);
 
-                if(users.Any(n => n.Username == _user.Username))
-                    return CreateUser.DuplicateUsername;
+            var checkUser = userRep.Fetch(_user.Username, UserField.Username);
 
-                if(users.Any(n => n.Email == _user.Email))
-                    return CreateUser.DuplicateEmail;
+            if (checkUser != null)
+            {
+                if (checkUser.Archived)
+                {
+                    notificationService.AddIssue(GetErrorMessage(CreateUser.Deletedaccount, _user.Username));
+                    return false;
+                }
 
-                throw new Exception("User exists");
+                if (_user.Username.ToLowerInvariant() == checkUser.Username.ToLowerInvariant())
+                {
+                    notificationService.AddIssue(GetErrorMessage(CreateUser.DuplicateUsername, _user.Username));
+                    return false;
+                }
+            }
+
+            checkUser = userRep.Fetch(_user.Email, UserField.Email);
+
+            if (checkUser != null)
+            {
+                if (_user.Email.ToLowerInvariant() == checkUser.Email.ToLowerInvariant())
+                {
+                    notificationService.AddIssue(GetErrorMessage(CreateUser.DuplicateEmail, _user.Email));
+                    return false;
+                }
             }
 
             int id;
-            if (userRep.Create(repUser, out id))
+            if (userRep.Create(user, out id))
             {
-                repUser.ID = id;
+                _user.ID = id;
+                groupManager.AddUserToGroups(_user.ID, _groupIds);//TODO: ALTER THIS #################################################################################
+                if (accountManager.CreateNewAccountPassword(_user))
+                {
+                    _user.ID = user.ID = id;
+                    searchManager.Add(new UserSearchDocument(user));
 
-                searchManager.Add(new UserSearchDocument(repUser));
-
-                return CreateUser.Success;
+                    return true;
+                }
+                return false;
             }
 
-            return CreateUser.Error;
+            notificationService.AddError(GetErrorMessage(CreateUser.Error));
+            return false;
+        }
+
+        //TODO: if we cache, then assign id to _user too and cache Models.User
+        public bool Create(User _user, out int _id)
+        {
+            var user = Mapper.Map<User, repUsers.User>(_user);
+            
+            var checkUser = userRep.Fetch(_user.Username, UserField.Username);
+
+            if (checkUser != null)
+            {
+                if (checkUser.Archived)
+                {
+                    notificationService.AddIssue(GetErrorMessage(CreateUser.Deletedaccount, _user.Username));
+                    _id = -1;
+                    return false;
+                }
+
+                if (_user.Username.ToLowerInvariant() == checkUser.Username.ToLowerInvariant())
+                {
+                    notificationService.AddIssue(GetErrorMessage(CreateUser.DuplicateUsername, _user.Username));
+                    _id = -1;
+                    return false;
+                }
+            }
+
+            checkUser = userRep.Fetch(_user.Email, UserField.Email);
+
+            if (checkUser != null)
+            {
+                if (_user.Email.ToLowerInvariant() == checkUser.Email.ToLowerInvariant())
+                {
+                    notificationService.AddIssue(GetErrorMessage(CreateUser.DuplicateEmail, _user.Email));
+                    _id = -1;
+                    return false;
+                }
+            }
+
+            int id;
+            if (userRep.Create(user, out id))
+            {
+                _user.ID = id;
+                groupManager.AddUserToGroup(_user.ID, 1);//TODO: ALTER THIS #################################################################################
+                if (accountManager.CreateNewAccountPassword(_user))
+                {
+                    _user.ID = user.ID = id;
+                    searchManager.Add(new UserSearchDocument(user));
+
+                    _id = id;
+                    return true;
+                }
+                _id = id;
+                return false;
+            }
+
+            notificationService.AddError(GetErrorMessage(CreateUser.Error));
+            _id = -1;
+            return false;
+        }
+
+        public bool Update(User _user)
+        {
+            var checkUser = userRep.Fetch(_user.Username, UserField.Username);
+
+            if (checkUser != null)
+            {
+                if (_user.Username.ToLowerInvariant() == checkUser.Username.ToLowerInvariant() && _user.ID != checkUser.ID)
+                {
+                    notificationService.AddIssue(string.Format("A user with the username '{0}' already exists.", _user.Username));
+                    return false;
+                }
+            }
+
+            checkUser = userRep.Fetch(_user.Email, UserField.Email);
+
+            if (checkUser != null)
+            {
+                if (_user.Email.ToLowerInvariant() == checkUser.Email.ToLowerInvariant() && _user.ID != checkUser.ID)
+                {
+                    notificationService.AddIssue(string.Format("A user with the email address '{0}' already exists.", _user.Email));
+                    return false;
+                }
+            } 
+            
+            var user = Mapper.Map<User, repUsers.User>(_user);
+
+            if (userRep.Update(user))
+            {
+                searchManager.Update(new UserSearchDocument(user));
+                return true;
+            }
+
+            notificationService.AddError("An error occurred while trying to edit the user. An administrator has been notified of this issue.");
+
+            return false;
+        }
+
+        public bool Delete(User _user)
+        {
+            var user = Mapper.Map<User, repUsers.User>(_user);
+
+            if (userRep.Delete(user))
+            {
+                var deletedUser = userRep.Fetch(_user.ID);
+                searchManager.Update(new UserSearchDocument(deletedUser));
+
+                return true;
+            }
+
+            notificationService.AddError(string.Format("An error occured while trying to delete '{0}'. An administrator has been notified of this issue.", _user.Username));
+
+            return false;
+        }
+
+        public IEnumerable<User> FetchRecordsFromSearch(SearchResult _searchResult)
+        {
+            if (_searchResult.Items.HasContent())
+            {
+                var repItems = userRep.Fetch(_searchResult.Items.Select(n => n.ID).ToList());
+                if (repItems.HasContent())
+                {
+                    return Mapper.Map<IEnumerable<repUsers.User>, IEnumerable<User>>(repItems);
+
+                }
+            }
+
+            return null;
+        }
+
+        public Profile FetchProfile(string _username)
+        {
+            return Mapper.Map<repUsers.Profile, Profile>(userRep.FetchProfile(_username));
+        }
+
+        public bool SaveApplicantData(IEnumerable<ApplicantData> _applicantData)
+        {
+            return userRep.SaveApplicantData(Mapper.Map<IEnumerable<ApplicantData>, IEnumerable<repUsers.ApplicantData>> (_applicantData));
+        }
+
+        public SearchResult DoSearch(BasicSearch _search)
+        {
+            var newSearch = Mapper.Map<BasicSearch, emSearch>(_search);
+            if (string.IsNullOrEmpty(_search.Query))
+            {
+                newSearch.CustomQuery = new Dictionary<string, emSearch.SearchTerm>
+                {
+                    {"Type", new emSearch.SearchTerm {Field = "User", Term = Occur.SHOULD}}
+                };
+            }
+            else
+            {
+                newSearch.CustomQuery = new Dictionary<string, emSearch.SearchTerm>
+                {
+                    {"Username", new emSearch.SearchTerm {Field = _search.Query, Term = Occur.SHOULD}},
+                    {"Forename", new emSearch.SearchTerm {Field = _search.Query, Term = Occur.SHOULD}},
+                    {"Surame", new emSearch.SearchTerm {Field = _search.Query, Term = Occur.SHOULD}},
+                    {"Email", new emSearch.SearchTerm {Field = _search.Query, Term = Occur.SHOULD}}//,
+                    //{"Archived", new emSearch.SearchTerm {Field = "False", Term = Occur.SHOULD}}
+                };
+            }
+            return searchManager.DoSearch(newSearch);
+          //  var result = _rawResults = searchManager.DoSearch(newSearch);
+/*
+            if (result.Items.HasContent())
+            {
+                return Mapper.Map <IEnumerable<repUsers.User>,IEnumerable<User>> (userRep.Fetch(result.Items.Select(n => n.ID).ToList()));
+            }*/
+
+           // return null;
+        }
+
+        public void ReindexSearchRecords()
+        {
+            var records = userRep.FetchAll();
+
+            if (!records.HasContent())
+            {
+                //todo: send an error message here
+                return;
+            }
+
+            foreach (var item in records)
+            {
+                searchManager.Add(new UserSearchDocument(item));
+            }
+        }
+
+        private static string GetErrorMessage(CreateUser _message, string _field = "")
+        {
+            switch (_message)
+            {
+                    case CreateUser.Deletedaccount:
+                        return string.Format("The account for username '{0}' has been deleted.", _field);
+                    case CreateUser.DuplicateUsername:
+                        return string.Format("The username '{0}' is unavailable.", _field);
+                    case CreateUser.DuplicateEmail:
+                        return string.Format("The email address '{0}' is already registered to an account.", _field);
+                    case CreateUser.Error:
+                        goto default;
+                default:
+                    return "An error occured. An administrator has been notified of this issue.";
+            }
         }
     }
 }

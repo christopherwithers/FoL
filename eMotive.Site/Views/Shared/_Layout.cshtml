@@ -1,18 +1,81 @@
-﻿<!DOCTYPE html>
-
-<html>
-<head>
-    <meta name="viewport" content="width=device-width" />
-    <title>@ViewBag.Title</title>
-    @Styles.Render("~/Content/bootstrap") 
-    <script>
-
-    </script>
-</head>
+﻿@using System.Web.Optimization
+@using eMotive.FoL.Common.Helpers
+@{
+    ViewBag.Title = "Home";
+}
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml" xml:lang="en">
+    <head>
+        <title>@ViewBag.Title</title>
+        <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+        <meta name="Description" content="The University of Birmingham has been challenging and developing great minds for more than a century. Characterised by a tradition of innovation, research at the University has broken new ground, pushed forward the boundaries of knowledge and made an impact on people&#39;s lives." />
+        @Styles.Render("~/Content/Frameworks")
+        @Styles.Render("~/Content/ContensisCss/Styles")
+    </head>
 <body>
-    <div style="margin-left: 50px;">
-        @RenderBody()
-    </div>
-     @Scripts.Render("~/bundles/bootstrap")
+    
+        <div id="wrapper">
+            <div id="header">
+                <h1 id="logo">
+                    <a href="http://www.birmingham.ac.uk">University of Birmingham</a><span style="display:none">|</span>
+                </h1>
+                <div id="socialMediaLinks">
+                    <ul>
+                        <li><a title="Facebook" href="http://www.facebook.com/unibirmingham"><img alt="Facebook" style="width: 23px; height: 24px;" src="http://www.birmingham.ac.uk/Images/website/icons/socialmedia/facebook-icon.png" /></a></li><li><a title="Twitter" href="http://twitter.com/unibirmingham"><img style="width: 23px; height: 24px;" alt="Twitter" src="http://www.birmingham.ac.uk/Images/website/icons/socialmedia/twitter-icon.png" /></a></li><li><a title="Flickr" href="http://www.flickr.com/unibirmingham"><img style="width: 23px; height: 24px;" alt="Flickr" src="http://www.birmingham.ac.uk/Images/website/icons/socialmedia/flickr-icon.png" /></a></li><li><a title="YouTube" href="http://www.youtube.com/unibirmingham"><img style="width: 23px; height: 24px;" alt="YouTube" src="http://www.birmingham.ac.uk/Images/website/icons/socialmedia/youtube-icon.png" /></a></li>
+                    </ul>
+                </div>
+                    <form method="post" action="http://www.birmingham.ac.uk/search.aspx">
+                          <div id="search">
+                              <div class="sys_textBoxWithRedirect" id="RedirectBox1">
+                                  <label for="searchBox">Search</label>
+                                  <input name="searchBox" class="sys_searchBox" id="searchBox" type="text" value="Search..." />
+                                  <input name="searchButton" class="sys_searchButton" id="searchButton" type="submit" value="Go" />
+                              </div>
+                          </div>
+
+                      </form>
+            </div>
+               
+            <div id="main">
+                <div id="navWrap">
+                    @Html.Partial("_HeaderMenu")
+                </div>
+
+                <div id="content">
+                    <div id="breadcrumbs">
+
+                    </div>
+                    <div id="mainNav">
+                        @{ Html.RenderAction("MainMenu", "Navigation", new { Area = "" }); }
+                    </div>
+                    <div id="wideContent">
+                        @RenderBody()
+                    </div>
+       
+                </div>
+            </div>
+            <div id="footer">
+                @Html.Partial("_Footer")
+            </div>
+        </div>   
+ 
+    @Scripts.Render("~/Scripts/Contensis/Core")
+    @Scripts.Render("~/Scripts/Frameworks")
+    <script src="@Url.Action("js","Application", new {area = ""})" type="text/javascript"></script>
+    @RenderSection("footer", false)
+    <script>
+        (function (i, s, o, g, r, a, m)
+        {
+            i['GoogleAnalyticsObject'] = r; i[r] = i[r] || function () {
+                (i[r].q = i[r].q || []).push(arguments);
+            }, i[r].l = 1 * new Date(); a = s.createElement(o),
+            m = s.getElementsByTagName(o)[0]; a.async = 1; a.src = g;
+            m.parentNode.insertBefore(a, m);
+        })(window, document, 'script', '//www.google-analytics.com/analytics.js', 'ga');
+
+        ga('create', 'UA-45423815-1', 'bham.ac.uk');
+        ga('send', 'pageview');
+
+</script>
 </body>
 </html>

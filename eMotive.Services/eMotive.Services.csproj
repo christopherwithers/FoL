@@ -4,11 +4,11 @@
   <PropertyGroup>
     <Configuration Condition=" '$(Configuration)' == '' ">Debug</Configuration>
     <Platform Condition=" '$(Platform)' == '' ">AnyCPU</Platform>
-    <ProjectGuid>{3E476FBE-3562-499E-982C-868BF23414EA}</ProjectGuid>
+    <ProjectGuid>{8B8EFF5A-77DC-48D3-8A17-E10897DF74B9}</ProjectGuid>
     <OutputType>Library</OutputType>
     <AppDesignerFolder>Properties</AppDesignerFolder>
-    <RootNamespace>eMotive.Repository</RootNamespace>
-    <AssemblyName>eMotive.Repository</AssemblyName>
+    <RootNamespace>eMotive.Services</RootNamespace>
+    <AssemblyName>eMotive.Services</AssemblyName>
     <TargetFrameworkVersion>v4.5</TargetFrameworkVersion>
     <FileAlignment>512</FileAlignment>
   </PropertyGroup>
@@ -30,51 +30,64 @@
     <WarningLevel>4</WarningLevel>
   </PropertyGroup>
   <ItemGroup>
+    <Reference Include="AutoMapper">
+      <HintPath>..\packages\AutoMapper.2.2.1\lib\net40\AutoMapper.dll</HintPath>
+    </Reference>
     <Reference Include="Dapper">
       <HintPath>..\packages\Dapper.1.13\lib\net45\Dapper.dll</HintPath>
     </Reference>
     <Reference Include="Extensions">
-      <HintPath>..\..\..\Dropbox\eMotive.MMI\eMotive.Site\bin\Extensions.dll</HintPath>
+      <HintPath>..\eMotive.Search\bin\Debug\Extensions.dll</HintPath>
+    </Reference>
+    <Reference Include="Lucene.Net">
+      <HintPath>..\eMotive.Search\bin\Debug\Lucene.Net.dll</HintPath>
     </Reference>
     <Reference Include="MySql.Data, Version=6.7.4.0, Culture=neutral, PublicKeyToken=c5687fc88969c44d, processorArchitecture=MSIL">
       <SpecificVersion>False</SpecificVersion>
-      <HintPath>..\packages\MySql.Data.6.7.4\lib\net40\MySql.Data.dll</HintPath>
+      <HintPath>..\eMotive.Repository\bin\Debug\MySql.Data.dll</HintPath>
     </Reference>
     <Reference Include="System" />
+    <Reference Include="System.Configuration" />
     <Reference Include="System.Core" />
-    <Reference Include="System.Data" />
     <Reference Include="System.Transactions" />
+    <Reference Include="System.Data" />
+    <Reference Include="System.Web" />
   </ItemGroup>
   <ItemGroup>
+    <Compile Include="AutoMapperServicesConfiguration.cs" />
     <Compile Include="Enums.cs" />
-    <Compile Include="Interfaces\INewsRepository.cs" />
-    <Compile Include="Interfaces\IPageRepository.cs" />
-    <Compile Include="Interfaces\IRoleRepository.cs" />
-    <Compile Include="Interfaces\ISignupRepository.cs" />
-    <Compile Include="Interfaces\IUserRepository.cs" />
-    <Compile Include="Objects\Menu\MenuItem.cs" />
-    <Compile Include="Objects\MySqlNewsRepository.cs" />
-    <Compile Include="Objects\MySqlPageRepository.cs" />
-    <Compile Include="Objects\MySqlRoleRepository.cs" />
-    <Compile Include="Objects\MySqlSignupRepository.cs" />
-    <Compile Include="Objects\MySqlUserRepository.cs" />
-    <Compile Include="Objects\News\NewsItem.cs" />
-    <Compile Include="Objects\Pages\Page.cs" />
-    <Compile Include="Objects\Pages\PartialPage.cs" />
-    <Compile Include="Objects\Signups\Group.cs" />
-    <Compile Include="Objects\Signups\Signup.cs" />
-    <Compile Include="Objects\Signups\Slot.cs" />
-    <Compile Include="Objects\Signups\UserSignup.cs" />
-    <Compile Include="Objects\Users\ApplicantData.cs" />
-    <Compile Include="Objects\Users\Profile.cs" />
-    <Compile Include="Objects\Users\Role.cs" />
-    <Compile Include="Objects\Users\User.cs" />
+    <Compile Include="Interfaces\EmailAttachment.cs" />
+    <Compile Include="Interfaces\IEmailService.cs" />
+    <Compile Include="Interfaces\IeMotiveConfigurationService.cs" />
+    <Compile Include="Interfaces\IDocumentManagerService.cs" />
+    <Compile Include="Interfaces\INotificationService.cs" />
+    <Compile Include="Interfaces\IReportService.cs" />
+    <Compile Include="Objects\MimeType.cs" />
+    <Compile Include="Objects\DocumentManagerService.cs" />
+    <Compile Include="Objects\EditableEmail.cs" />
+    <Compile Include="Objects\Email.cs" />
+    <Compile Include="Objects\EmailLog.cs" />
+    <Compile Include="Objects\EmailSearchDocument.cs" />
+    <Compile Include="Objects\EmailService.cs" />
+    <Compile Include="eMotiveConfigurationServiceWebConfig.cs" />
+    <Compile Include="Objects\Message.cs" />
+    <Compile Include="NotificationService.cs" />
+    <Compile Include="Objects\ReportService.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
   </ItemGroup>
   <ItemGroup>
     <None Include="packages.config" />
   </ItemGroup>
-  <ItemGroup />
+  <ItemGroup>
+    <ProjectReference Include="..\eMotive.Models\eMotive.Models.csproj">
+      <Project>{4747a062-0720-4ea7-98cb-1b12eb4512fe}</Project>
+      <Name>eMotive.Models</Name>
+    </ProjectReference>
+    <ProjectReference Include="..\eMotive.Search\eMotive.Search.csproj">
+      <Project>{3185EB88-28B3-4997-AD51-023422F2E972}</Project>
+      <Name>eMotive.Search</Name>
+    </ProjectReference>
+  </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
   <!-- To modify your build process, add your task inside one of the targets below and uncomment it. 
        Other similar extension points exist, see Microsoft.Common.targets.
