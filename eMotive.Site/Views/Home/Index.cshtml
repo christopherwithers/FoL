@@ -1,0 +1,38 @@
+﻿@using eMotive.Models.Objects.Signups
+@model UserHomeView
+@{
+    ViewBag.Title = "Home";
+    Layout = "~/Views/Shared/_Layout.cshtml";
+    /*    if (User.IsInRole("Applicant"))
+    {
+        Layout = "~/Views/Shared/_LayoutAdmin.cshtml";
+    }
+    else
+    {
+        Layout = "~/Views/Shared/_Layout.cshtml";
+    }*/
+}
+
+@(Model.HasSignedUp ? Html.Raw(Server.HtmlDecode(Model.PageSections["Applicant-Home-Header-Signed"].Text)) : Html.Raw(Server.HtmlDecode(Model.PageSections["Applicant-Home-Header-Unsigned"].Text)))
+
+@if(!Model.HasSignedUp)
+{
+<div class ="row">
+    <div class="span4 offset2">
+        <a href="@Url.Action("Signups", "Interviews")" role="button" class="btn btn-info" id="SlotSignup">You have not signed up for an interview appointment. Click here to do so.</a>
+    </div>
+</div>
+}
+else
+{
+    <h3>Interview Details</h3>
+    <p class="text-info">Your interview is on @Model.SignUpDate.ToString("dddd d MMMM yyyy") at @Model.SignUpDetails. </p><p class="lastItem"><small>@Html.ActionLink("Click here to download your appointment.", "DownloadCalanderAppointment")</small></p>
+    <p class="text-info">Please ensure you arrive on time.</p><br />
+    <div class="row lastItem">
+        <div class="span4 offset2">
+            <a href="@Url.Action("Slots", "Interviews", new {id = Model.SignupID})" role="button" class="btn btn-info" id="SlotCancel">If you wish to cancel or change your interview time. Please click here.</a>
+        </div>
+    </div>
+}
+
+@(Model.HasSignedUp ? Html.Raw(Server.HtmlDecode(Model.PageSections["Applicant-Home-Footer-Signed"].Text)) : Html.Raw(Server.HtmlDecode(Model.PageSections["Applicant-Home-Footer-Unsigned"].Text)))

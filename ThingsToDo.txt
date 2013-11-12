@@ -1,0 +1,2 @@
+Think about email system. Currently hardwiring emails to specific actions using a key. Why not create events, that any number of emails can be assigned to?
+THe events will be static and zero or more emails attached to them.

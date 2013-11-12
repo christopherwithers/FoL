@@ -1,0 +1,119 @@
+﻿@{
+    ViewBag.Title = "Index";
+    Layout = "~/Views/Shared/_LayoutAdmin.cshtml";
+}
+
+@section Crumbs
+{
+    <ul class="breadcrumb">
+        <li class="active">Home
+        </li>
+    </ul>
+}
+<div class="page-header">
+    <h2>MMI Admin Home</h2>
+</div>
+<h3>Dashboard</h3>
+  <!-- Add Google Analytics authorization button -->
+<button id="authorize-button" style="visibility: hidden">
+    Authorize Analytics</button>
+<div id="ui" style="display:none">
+    <div class="row">
+        <div class="span12 well">
+            <h5>Site Visits</h5>
+            <div id='dataOverTimeConfig'></div>
+        </div>
+    </div>
+    <div class="row" style="margin-top: 20px;">
+        <div class="offset1 span4 well">
+            <h5>Site Visits Breakdown</h5>
+            <div id='scorecard'></div>
+        </div>
+        <div class="span6 well">
+            <h5>Visitor Source</h5>
+            <div id='sourceMediumTableConfig'></div>
+        </div>
+    </div>
+</div>
+<!-- Div element where the Line Chart will be placed -->
+
+
+
+@section Scripts
+{  <script src="https://www.google.com/jsapi"></script>
+  <script src="@Url.Content("~/Content/gadash-1.0.js")"></script>
+  <script src="https://apis.google.com/js/client.js?onload=gadashInit"></script>
+    <script>
+        // Configure these parameters before you start.
+        var API_KEY = 'AIzaSyC2cCGkfq_5T3cSTPtMeWZrzuHZWal2ujs';
+        var CLIENT_ID = '131627886685-14pib8f78sgm52v7ibqds3575prb9tue.apps.googleusercontent.com';
+        var TABLE_ID = 'ga:78662569';
+        // Format of table ID is ga:xxx where xxx is the profile ID.
+
+        gadash.configKeys({
+            'apiKey': API_KEY,
+            'clientId': CLIENT_ID
+        });
+
+        // Create new Chart.
+        var dataOverTime = new gadash.Chart();
+        var scoreCard = new gadash.Chart();
+        var sourceMediumTable = new gadash.Chart();
+
+
+        // Base chart configuration. Used for all charts.
+        var baseConfig = {
+            'last-n-days': 30,
+            'query': {
+                'metrics': 'ga:visitors, ga:visits, ga:pageviews',
+            }
+        };
+
+
+        // Configuration for data over time graph.
+        var dataOverTimeConfig = {
+            'divContainer': 'dataOverTimeConfig',
+            'type': 'LineChart',
+            'query': {
+                'dimensions': 'ga:date',
+                'sort': 'ga:date'
+            },
+            'chartOptions': {
+                height: 300,
+                legend: { position: 'bottom' },
+                hAxis: { title: 'Date' },
+                curveType: 'function'
+            }
+        };
+
+
+        // Configuration for totals for each metric.
+        var scoreCardConfig = {
+            'divContainer': 'scorecard',
+        };
+
+
+        // Configuration for source medium table.
+        var sourceMediumTableConfig = {
+            'divContainer': 'sourceMediumTableConfig',
+            'query': {
+                'dimensions': 'ga:source,ga:medium',
+                'sort': '-ga:visitors',
+                'max-results': 100
+            }
+        };
+        
+        $(function ()
+        {
+            // Add the table id to the base configuration object.
+            baseConfig.query.ids = TABLE_ID;
+
+            dataOverTime.set(baseConfig).set(dataOverTimeConfig).render();
+            scoreCard.set(baseConfig).set(scoreCardConfig).render();
+            sourceMediumTable.set(baseConfig).set(sourceMediumTableConfig).render();
+
+            // Display UI.
+            document.getElementById('ui').style.display = 'block';
+        });
+    </script>
+}
